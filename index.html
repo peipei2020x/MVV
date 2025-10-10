@@ -1,0 +1,1199 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>マルチ動画ビューア multi video viewer</title>
+    <style>
+        :root {
+            --bg-color: #1a1f2c;
+            --bg-secondary-color: #2c344b;
+            --text-color: #e0e0e0;
+            --primary-color: #00aaff;
+            --border-color: #444c66;
+            --input-bg-color: #2c344b;
+            --button-bg-color: #4a5472;
+            --button-hover-bg-color: #626c91;
+            --danger-color: #e74c3c;
+            --sidebar-width: 280px;
+        }
+        .light-theme {
+            --bg-color: #f0f2f5;
+            --bg-secondary-color: #ffffff;
+            --text-color: #333333;
+            --primary-color: #007bff;
+            --border-color: #d1d5db;
+            --input-bg-color: #ffffff;
+            --button-bg-color: #e4e6eb;
+            --button-hover-bg-color: #d8dbdf;
+            --danger-color: #dc3545;
+        }
+        *, *::before, *::after { box-sizing: border-box; }
+        body {
+            background-color: var(--bg-color);
+            margin: 0;
+            color: var(--text-color);
+            font-family: 'Segoe UI', Meiryo, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+            overflow: hidden;
+            display: flex;
+            height: 100vh;
+            /* 背景画像用のスタイルを追加 */
+            background-size: cover;
+            background-position: center center;
+            background-attachment: fixed;
+        }
+        /* --- Layout --- */
+        #left-sidebar, #right-sidebar, #footer-controls {
+            transition: opacity 0.4s ease, transform 0.4s ease, visibility 0.4s;
+            z-index: 100;
+        }
+        #left-sidebar, #right-sidebar {
+            width: var(--sidebar-width);
+            background-color: var(--bg-secondary-color);
+            padding: 15px;
+            height: 100vh;
+            overflow-y: auto;
+            flex-shrink: 0;
+            border-left: 1px solid var(--border-color);
+            border-right: 1px solid var(--border-color);
+        }
+        #main-container {
+            flex-grow: 1;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            transition: width 0.4s ease;
+        }
+        #content-container {
+            flex-grow: 1;
+            display: grid;
+            padding: 5px;
+            gap: 5px;
+            overflow: hidden;
+        }
+        #footer-controls {
+            flex-shrink: 0;
+            background-color: var(--bg-secondary-color);
+            padding: 8px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        /* --- Immersive Mode --- */
+        body.immersive-mode #left-sidebar,
+        body.immersive-mode #right-sidebar,
+        body.immersive-mode #footer-controls {
+            position: fixed;
+            opacity: 0;
+            visibility: hidden;
+        }
+        body.immersive-mode #left-sidebar { top: 0; left: 0; transform: translateX(-100%); }
+        body.immersive-mode #right-sidebar { top: 0; right: 0; transform: translateX(100%); }
+        body.immersive-mode #footer-controls { bottom: 0; left: 0; right: 0; transform: translateY(100%); }
+        
+        body.immersive-mode #main-container {
+            width: 100vw;
+            height: 100vh;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+        body.immersive-mode #content-container { padding: 0; gap: 1px; }
+
+        body.immersive-mode #left-sidebar.peek,
+        body.immersive-mode #right-sidebar.peek,
+        body.immersive-mode #footer-controls.peek {
+            opacity: 1;
+            transform: translate(0, 0);
+            visibility: visible;
+        }
+
+        /* --- UI Elements --- */
+        h3 { margin-top: 0; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; }
+        #easter-egg-trigger { cursor: help; user-select: none;} /* イースターエッグ用 */
+        .setting-group { margin-bottom: 20px; }
+        .setting-group label { display: block; margin-bottom: 8px; font-size: 14px; user-select: none; }
+        input[type="range"] { width: 100%; }
+        input[type="text"], input[type="number"], select {
+            width: 100%;
+            padding: 8px;
+            background-color: var(--input-bg-color);
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            border-radius: 4px;
+        }
+        button {
+            padding: 8px 12px;
+            background-color: var(--button-bg-color);
+            color: var(--text-color);
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            font-size: 14px;
+            white-space: nowrap;
+        }
+        button:hover { background-color: var(--button-hover-bg-color); }
+        button:disabled { background-color: #333; color: #888; cursor: not-allowed; }
+        .button-group { display: flex; gap: 5px; }
+        .button-group button { flex-grow: 1; }
+        .button-group button.active { background-color: var(--primary-color); color: white; }
+        .danger-button { background-color: var(--danger-color); }
+        .danger-button:hover { background-color: #c0392b; }
+
+        /* --- Content View --- */
+        .content-wrapper {
+            position: relative;
+            background-color: var(--input-bg-color);
+            border-radius: 4px;
+            overflow: hidden;
+            transition: all 0.3s ease-in-out;
+        }
+        .content-loader {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 40px;
+            height: 40px;
+            border: 4px solid var(--border-color);
+            border-top-color: var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { to { transform: translate(-50%, -50%) rotate(360deg); } }
+        iframe, video, img {
+            width: 100%;
+            height: 100%;
+            border: 2px solid transparent;
+            box-sizing: border-box;
+            object-fit: contain;
+            transition: transform 0.3s, border 0.2s;
+            background-color: #000;
+        }
+        iframe.fill-mode, video.fill-mode, img.fill-mode { object-fit: cover; }
+        .selected { border: 2px solid var(--primary-color); box-shadow: 0 0 10px var(--primary-color); z-index: 10; }
+
+        /* --- Spotlight (Main-focus) Mode --- */
+        body.spotlight-mode #content-container {
+            position: relative;
+            display: block; /* Disable grid */
+        }
+        body.spotlight-mode .content-wrapper {
+            position: absolute;
+            right: 10px;
+            width: 240px;      /* पहले से बड़ा */
+            height: 135px;     /* 16:9 Aspect Ratio */
+            z-index: 5;
+            cursor: pointer;
+        }
+        body.spotlight-mode .content-wrapper:hover {
+            transform: scale(1.05);
+            z-index: 6;
+        }
+        body.spotlight-mode .content-wrapper.spotlight {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: calc(100% - 260px); /* サムネイル領域を確保 */
+            height: 100%;
+            z-index: 7;
+            cursor: default;
+        }
+        body.spotlight-mode .content-wrapper.spotlight:hover {
+            transform: none; /* 主軸は拡大しない */
+        }
+        
+        /* --- Left Sidebar Specifics --- */
+        #url-inputs { max-height: 250px; overflow-y: auto; margin-bottom: 10px; }
+        .url-input { display: flex; gap: 5px; margin-bottom: 5px; }
+        #drop-zone {
+            border: 2px dashed var(--border-color);
+            padding: 20px;
+            text-align: center;
+            border-radius: 5px;
+            transition: background-color 0.2s, border-color 0.2s;
+        }
+        #drop-zone.dragover { background-color: var(--button-bg-color); border-color: var(--primary-color); }
+
+        /* --- Modal --- */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex; align-items: center; justify-content: center; z-index: 1000;
+            opacity: 0; visibility: hidden; transition: opacity 0.3s, visibility 0.3s;
+        }
+        .modal-overlay.visible { opacity: 1; visibility: visible; }
+        .modal-content {
+            background: var(--bg-secondary-color);
+            padding: 25px;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .modal-content h2 { margin-top: 0; }
+        .modal-content code { background: var(--bg-color); padding: 2px 5px; border-radius: 3px; }
+        .custom-link-manager-item { display: flex; align-items: center; gap: 10px; margin-bottom: 5px; font-size: 14px; }
+        .custom-link-manager-item span { flex-grow: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    </style>
+</head>
+<body class="dark-theme">
+
+    <!-- Left Sidebar: Content Input -->
+    <div id="left-sidebar">
+        <h3 id="easter-egg-trigger">コンテンツ追加</h3>
+        <div class="setting-group">
+            <label>URLを入力</label>
+            <div id="url-inputs">
+                <div class="url-input">
+                    <input type="text" placeholder="Web/動画/画像のURL">
+                    <button onclick="removeUrlInput(this)">-</button>
+                </div>
+            </div>
+            <div class="button-group">
+                <button onclick="addUrlInput()">+</button>
+                <button onclick="loadUrls()">読み込み</button>
+            </div>
+        </div>
+        <div class="setting-group">
+            <label>またはファイルを追加</label>
+            <div id="drop-zone">ここにファイルをドラッグ&ドロップ</div>
+        </div>
+        <div class="setting-group">
+            <label>プリセット</label>
+            <div id="preset-buttons" class="button-group" style="flex-wrap: wrap;"></div>
+            <div class="button-group" style="margin-top:5px;">
+                <select id="preset-slot"></select>
+                <button onclick="savePreset()">保存</button>
+                <button onclick="deletePreset()" class="danger-button">削除</button>
+            </div>
+        </div>
+        <hr>
+        <div class="setting-group">
+             <button onclick="clearAllContents()" class="danger-button" style="width:100%;">全クリア</button>
+        </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <div id="main-container">
+        <div id="content-container"></div>
+        <div id="footer-controls">
+            <button onclick="playAllVideos()">▶ 一斉再生</button>
+            <button onclick="pauseAllVideos()">❚❚ 一斉停止</button>
+            <button onclick="toggleAllMute()">🔇 ミュート/解除</button>
+            <button onclick="equalizeAllVolumes()">🔊 音量均一化</button>
+            <button onclick="reloadAll()">🔄 一斉リロード</button>
+            <button onclick="saveStateToUrl()">🔗 共有URL発行</button>
+            <button id="spotlight-mode-btn" onclick="toggleSpotlightMode()">👁️‍🗨️ 主軸モード</button>
+            <button onclick="toggleImmersiveMode()">👁️ 没入モード</button>
+        </div>
+    </div>
+
+    <!-- Right Sidebar: Settings -->
+    <div id="right-sidebar">
+        <h3>全体設定</h3>
+        <div class="setting-group">
+            <label>テーマ: <span id="theme-name">ダーク</span></label>
+            <button onclick="toggleTheme()">テーマ切替</button>
+        </div>
+        <div class="setting-group">
+            <label>列数: <span id="columnCountValue">2</span></label>
+            <input type="range" id="columnCount" min="1" max="10" value="2" oninput="adjustColumnCount(this.value)">
+        </div>
+        <div class="setting-group">
+            <label>余白: <span id="gapSliderValue">5</span>px</label>
+            <input type="range" id="gapSlider" min="0" max="50" value="5" oninput="adjustGap(this.value)">
+        </div>
+        <div class="setting-group">
+            <label>表示モード</label>
+            <div class="button-group">
+                <button id="fit-mode-btn" class="active" onclick="setAspectRatioMode('contain')">比率維持</button>
+                <button id="fill-mode-btn" onclick="setAspectRatioMode('cover')">全画面</button>
+            </div>
+        </div>
+         <div class="setting-group">
+            <button onclick="optimizeLayout()" style="width: 100%;">レイアウト最適化</button>
+        </div>
+        <div class="setting-group">
+            <label style="display:inline-flex; align-items: center; gap: 5px;">
+                <input type="checkbox" id="muteOthersOnSelect" onchange="updateSelection(selectedElement)">
+                <span>選択時に他をミュート</span>
+            </label>
+        </div>
+        <hr>
+        <h3>選択中 (<span id="selected-info">なし</span>)</h3>
+        <div id="selected-item-settings" class="setting-group" style="opacity: 0.5;">
+            <input type="text" id="urlInputSettings" placeholder="URLを変更してEnter" style="margin-bottom: 10px;">
+            <div class="button-group" style="margin-bottom: 5px;">
+                <button onclick="reloadSelected()">リロード</button>
+                <button onclick="rotateSelected()">回転</button>
+                <button onclick="flipSelected()">反転</button>
+            </div>
+            <div class="button-group">
+                <button onclick="duplicateSelected()">複製</button>
+                <button onclick="removeSelected()" class="danger-button" style="flex-grow: 2;">削除</button>
+            </div>
+            <!-- Video specific controls -->
+            <div id="video-controls" style="margin-top: 15px;">
+                 <label>音量: <span id="volumeValue">100</span>%</label>
+                 <input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="1" oninput="changeSelectedVideoVolume(this.value)">
+                 <label style="margin-top:10px;">再生速度</label>
+                 <div class="button-group" id="playback-rate-buttons">
+                    <button onclick="changeSelectedVideoPlaybackRate(0.5)">0.5x</button>
+                    <button onclick="changeSelectedVideoPlaybackRate(1.0)" class="active">1.0x</button>
+                    <button onclick="changeSelectedVideoPlaybackRate(1.5)">1.5x</button>
+                    <button onclick="changeSelectedVideoPlaybackRate(2.0)">2.0x</button>
+                 </div>
+            </div>
+        </div>
+        <hr>
+        <button onclick="showModal('help-modal')">？ 使い方</button>
+        <button onclick="showModal('terms-modal')" style="margin-top:5px;">利用規約</button>
+    </div>
+
+    <!-- Modals -->
+    <div id="help-modal" class="modal-overlay" onclick="closeAllModals()">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <h2>使い方ガイド</h2>
+            <p><b>コンテンツの追加:</b><br>左のパネルでURLを入力し「読み込み」を押すか、動画/画像ファイルを点線エリアにドラッグ＆ドロップで「追加」します。</p>
+            <p><b>レイアウト調整:</b><br>右のパネルのスライダーで、全体の列数やコンテンツ間の余白を調整できます。「レイアウト最適化」ボタンも便利です。</p>
+            <p><b>個別操作:</b><br>中央のコンテンツをクリックで選択（青枠が付きます）。選択後、右パネルでURL変更、回転、反転、複製、削除ができます。動画の場合は音量や再生速度も調整可能です。</p>
+            <p><b>音量均一化:</b><br>下の「🔊」ボタンで、再生中の動画全ての音量を均等に割り振ります。特定の動画だけ音が大きい場合に便利です。</p>
+            <p><b>主軸モード:</b><br>下の「👁️‍🗨️」ボタンで、選択中のコンテンツを主役にします。他のコンテンツは右側にサムネイル表示され、クリックで主役を切り替えられます。もう一度ボタンを押すと元のグリッド表示に戻ります。</p>
+            <p><b>没入モード:</b><br>下の「👁️」ボタンでUIを隠します。マウスを画面左右下端に寄せるとUIが一時的に現れ、UIからカーソルが離れると自動で隠れます。</p>
+            <p><b>共有機能:</b><br>下の「共有URL発行」ボタンで、現在のレイアウトを保存したURLが生成されます。<br><b style="color:var(--danger-color)">注意:</b> PC内のローカルファイル（ドラッグ＆ドロップで追加したもの）は、URLに含まれず共有できません。</p>
+            <p><b>ショートカット一覧 (<code>?</code>キーでも表示):</b></p>
+            <ul>
+                <li><code>←</code> <code>→</code> <code>↑</code> <code>↓</code>: コンテンツを選択</li>
+                <li><code>1</code>-<code>9</code>: 1-9番目のコンテンツを直接選択</li>
+                <li><code>Delete</code> / <code>Backspace</code>: 選択中のコンテンツを削除</li>
+                <li><code>R</code>: 選択中のコンテンツをリロード</li>
+                <li><code>D</code>: 選択中のコンテンツを複製して末尾に追加</li>
+                <li><code>Enter</code>: 選択中のコンテンツをフルスクリーン表示</li>
+                <li><code>Space</code>: 選択中の動画を再生/停止</li>
+                <li><code>M</code>: 選択中の動画をミュート/解除</li>
+                <li><code>F</code>: 没入モードの切り替え</li>
+                <li><code>+</code> / <code>-</code>: 列数を増減</li>
+                <li><code>Alt + P</code>: 全動画を再生, <code>Alt + S</code>: 全動画を停止</li>
+            </ul>
+            <div id="custom-links-container-help"></div>
+            <button onclick="closeAllModals()" style="margin-top: 15px;">閉じる</button>
+        </div>
+    </div>
+    <div id="terms-modal" class="modal-overlay" onclick="closeAllModals()">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <h2>利用規約・免責事項</h2>
+            <p>本ツールは、ウェブページやメディアファイルを表示するためのクライアントサイドアプリケーションです。サーバーへのデータ送信は一切行いません。</p>
+            <ol>
+                <li><b>コンテンツの著作権:</b> 本ツールを利用して表示されるコンテンツの著作権は、各コンテンツの制作者または権利者に帰属します。ユーザーは、各国の著作権法を遵守する責任を負います。</li>
+                <li><b>表示の制約:</b> 一部のウェブサイトは、セキュリティポリシー（X-Frame-Optionsなど）により、本ツール内に表示できない場合があります。これはウェブサイト側の仕様であり、本ツールの不具合ではありません。</li>
+                <li><b>免責事項:</b> 本ツールの利用によって生じたいかなる損害についても、開発者は一切の責任を負いません。自己責任でご利用ください。</li>
+            </ol>
+            <div id="custom-links-container-terms"></div>
+            <button onclick="closeAllModals()" style="margin-top: 15px;">同意して閉じる</button>
+        </div>
+    </div>
+    
+    <!-- Easter Egg Modal -->
+    <div id="easter-egg-modal" class="modal-overlay" onclick="closeAllModals()">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <h2>秘密の設定パネル</h2>
+            <p>よく見つけましたね！ここでは特別な設定ができます。</p>
+            <hr>
+            <div class="setting-group">
+                <label>プリセットスロット数: <span id="preset-slot-count-value">5</span></label>
+                <input type="range" id="preset-slot-count" min="5" max="20" value="5" oninput="updatePresetSlotCount(this.value)">
+            </div>
+            <div class="setting-group">
+                <label>背景画像URL</label>
+                <input type="text" id="background-image-url" placeholder="画像のURLを入力またはペースト">
+                <div class="button-group" style="margin-top:5px;">
+                    <button onclick="setBackgroundImage()">適用</button>
+                    <button onclick="clearBackgroundImage()" class="danger-button">クリア</button>
+                </div>
+            </div>
+            <div class="setting-group">
+                <label>隠しプリセット</label>
+                <div id="secret-preset-buttons" class="button-group"></div>
+                <div class="button-group" style="margin-top:5px;">
+                    <select id="secret-preset-slot">
+                        <option value="1">Secret 1</option><option value="2">Secret 2</option><option value="3">Secret 3</option>
+                    </select>
+                    <button onclick="saveSecretPreset()">保存</button>
+                    <button onclick="deleteSecretPreset()" class="danger-button">削除</button>
+                </div>
+            </div>
+            <div class="setting-group">
+                <label>カスタムURLショートカット管理</label>
+                <div id="custom-links-manager" style="max-height: 150px; overflow-y: auto; margin-bottom: 10px; border: 1px solid var(--border-color); padding: 5px; border-radius: 4px;"></div>
+                <div class="button-group" style="margin-top:5px;">
+                    <input type="text" id="new-link-name" placeholder="リンク名" style="width: 40%;">
+                    <input type="text" id="new-link-url" placeholder="https://example.com" style="flex-grow: 1;">
+                    <button onclick="addCustomLink()">追加</button>
+                </div>
+            </div>
+            <hr>
+            <button onclick="closeAllModals()">閉じる</button>
+        </div>
+    </div>
+
+    <script>
+        // --- App State ---
+        let selectedElement = null;
+        let isSpotlightMode = false;
+        let presetSlotCount = 5;
+
+        // --- Initialization ---
+        document.addEventListener('DOMContentLoaded', () => {
+            loadEasterEggSettings();
+            if (!localStorage.getItem('visited')) {
+                showModal('help-modal');
+                localStorage.setItem('visited', 'true');
+            }
+            setupDragAndDrop();
+            setupKeyboardShortcuts();
+            setupImmersiveModePeek();
+            setupEasterEggTrigger();
+            renderPresetButtons();
+            loadStateFromUrl();
+            updateSelection(null); // Initialize panel state
+        });
+
+        // --- Core UI Functions ---
+        function addUrlInput() {
+            const container = document.getElementById('url-inputs');
+            const div = document.createElement('div');
+            div.className = 'url-input';
+            div.innerHTML = `<input type="text" placeholder="Web/動画/画像のURL"><button onclick="removeUrlInput(this)">-</button>`;
+            container.appendChild(div);
+        }
+        function removeUrlInput(button) {
+            const container = document.getElementById('url-inputs');
+            if (container.children.length > 1) {
+                button.parentElement.remove();
+            }
+        }
+        function loadUrls() {
+            const urls = Array.from(document.querySelectorAll('#url-inputs input'))
+                .map(input => input.value.trim())
+                .filter(url => url !== '');
+            if (urls.length > 0) createContentView(urls, true); // Replace all
+        }
+        function clearAllContents() {
+            if (confirm('すべてのコンテンツを削除しますか？\nこの操作は元に戻せません。')) {
+                document.getElementById('content-container').innerHTML = '';
+                if(isSpotlightMode) toggleSpotlightMode(); // Exit spotlight mode if active
+                updateSelection(null);
+            }
+        }
+
+        // --- Content Creation and Management ---
+        function createContentView(urls, replace = true) {
+            if (isSpotlightMode) toggleSpotlightMode(); // Always exit spotlight mode on content change
+            const container = document.getElementById('content-container');
+            if (replace) {
+                container.innerHTML = '';
+            }
+            const startIndex = container.children.length;
+
+            urls.forEach((url, index) => {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'content-wrapper';
+                wrapper.dataset.index = startIndex + index + 1;
+                
+                const loader = document.createElement('div');
+                loader.className = 'content-loader';
+                wrapper.appendChild(loader);
+
+                let element;
+                if (url.match(/\.(jpeg|jpg|gif|png|webp|svg)$/i)) {
+                    element = document.createElement('img');
+                } else if (url.match(/\.(mp4|webm|ogg|mov)$/i) || url.startsWith('blob:')) {
+                    element = document.createElement('video');
+                    element.controls = true;
+                    element.muted = true;
+                    element.autoplay = true;
+                    element.loop = true;
+                    element.addEventListener('volumechange', () => updateSelectedVideoUI(element));
+                    element.addEventListener('ratechange', () => updateSelectedVideoUI(element));
+                } else {
+                    element = document.createElement('iframe');
+                    element.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-popups allow-presentation');
+                    element.setAttribute('allow', 'autoplay; encrypted-media; fullscreen');
+                }
+                
+                element.src = url;
+                element.style.opacity = '0';
+                element.onload = element.oncanplay = () => {
+                    loader.remove();
+                    element.style.opacity = '1';
+                };
+                element.onerror = () => {
+                    loader.remove();
+                    wrapper.innerHTML += '<p style="text-align:center; padding:10px; color: var(--danger-color);">読込失敗</p>';
+                };
+
+                element.addEventListener('click', (e) => { 
+                    e.preventDefault(); 
+                    e.stopPropagation(); 
+                    selectElement(wrapper); 
+                });
+                element.addEventListener('dblclick', () => {
+                    try {
+                        if (element.requestFullscreen) element.requestFullscreen();
+                    } catch (e) {
+                        console.error("Fullscreen failed:", e);
+                    }
+                });
+
+                wrapper.appendChild(element);
+                container.appendChild(wrapper);
+            });
+            adjustColumnCount(document.getElementById('columnCount').value);
+            setAspectRatioMode(document.querySelector('#right-sidebar .button-group button.active')?.id === 'fill-mode-btn' ? 'cover' : 'contain', false);
+            if(replace) updateSelection(null);
+        }
+        
+        function selectElement(wrapper) {
+            if (selectedElement === wrapper && !isSpotlightMode) {
+                updateSelection(null);
+                return;
+            }
+            if(isSpotlightMode) {
+                const currentSpot = document.querySelector('.content-wrapper.spotlight');
+                if(currentSpot) currentSpot.classList.remove('spotlight');
+                wrapper.classList.add('spotlight');
+                updateSpotlightLayout(); // BUG FIX: Re-calculate layout after changing spotlight
+            }
+            updateSelection(wrapper);
+        }
+
+        function updateSelection(wrapper) {
+            if (selectedElement) selectedElement.classList.remove('selected');
+            selectedElement = wrapper;
+            const settingsPanel = document.getElementById('selected-item-settings');
+            const videoControls = document.getElementById('video-controls');
+            
+            if (document.getElementById('muteOthersOnSelect').checked) {
+                document.querySelectorAll('video').forEach(v => v.muted = true);
+            }
+
+            if (selectedElement) {
+                selectedElement.classList.add('selected');
+                settingsPanel.style.opacity = '1';
+                settingsPanel.querySelectorAll('button, input').forEach(el => el.disabled = false);
+                const content = selectedElement.querySelector('iframe, video, img');
+                document.getElementById('urlInputSettings').value = content.src;
+                document.getElementById('selected-info').textContent = `#${selectedElement.dataset.index}`;
+                
+                const video = selectedElement.querySelector('video');
+                if (video) {
+                    videoControls.style.display = 'block';
+                    if (document.getElementById('muteOthersOnSelect').checked) video.muted = false;
+                    updateSelectedVideoUI(video);
+                } else {
+                    videoControls.style.display = 'none';
+                }
+
+            } else {
+                settingsPanel.style.opacity = '0.5';
+                settingsPanel.querySelectorAll('button, input').forEach(el => el.disabled = true);
+                videoControls.style.display = 'none';
+                document.getElementById('urlInputSettings').value = '';
+                document.getElementById('selected-info').textContent = `なし`;
+            }
+        }
+        
+        function updateSelectedVideoUI(videoElement) {
+            if (!selectedElement || selectedElement.querySelector('video') !== videoElement) return;
+
+            const volume = videoElement.muted ? 0 : videoElement.volume;
+            document.getElementById('volumeSlider').value = volume;
+            document.getElementById('volumeValue').textContent = Math.round(volume * 100);
+
+            const rate = videoElement.playbackRate;
+            document.querySelectorAll('#playback-rate-buttons button').forEach(btn => {
+                btn.classList.toggle('active', parseFloat(btn.textContent) === rate);
+            });
+        }
+
+        // --- Selected Item Controls ---
+        document.getElementById('urlInputSettings').addEventListener('keyup', (e) => {
+            if (e.key === 'Enter') {
+                if (!selectedElement) return;
+                const url = e.target.value.trim();
+                if (url) {
+                    const urls = Array.from(document.querySelectorAll('#content-container > .content-wrapper > *')).map(el => el.src);
+                    const selectedIndex = Array.from(document.querySelectorAll('.content-wrapper')).indexOf(selectedElement);
+                    urls[selectedIndex] = url;
+                    createContentView(urls, true);
+                }
+            }
+        });
+        function reloadSelected() { if(selectedElement) { const c = selectedElement.querySelector('iframe, video, img'); if(c) { c.src = c.src; } } }
+        function removeSelected() {
+            if(selectedElement) {
+                 const parent = selectedElement.parentElement;
+                 const wasSpotlight = selectedElement.classList.contains('spotlight');
+                 selectedElement.remove();
+                 
+                 let newSelection = null;
+                 if (isSpotlightMode && wasSpotlight && parent.children.length > 0) {
+                     newSelection = parent.firstElementChild;
+                     newSelection.classList.add('spotlight');
+                 }
+                 updateSelection(newSelection);
+                 
+                 Array.from(parent.children).forEach((child, index) => { child.dataset.index = index + 1; });
+                 if(parent.children.length === 0 && isSpotlightMode) toggleSpotlightMode();
+                 else if (isSpotlightMode) updateSpotlightLayout();
+            }
+        }
+        function applyTransform(contentElement) {
+            const rotation = parseInt(contentElement.dataset.rotation || 0);
+            const isFlipped = contentElement.classList.contains('flipped');
+            let transformString = `rotate(${rotation}deg)`;
+            if (isFlipped) transformString += ' scaleX(-1)';
+            contentElement.style.transform = transformString;
+        }
+        function rotateSelected() {
+            if (!selectedElement) return;
+            const content = selectedElement.querySelector('iframe, video, img');
+            const currentRotation = parseInt(content.dataset.rotation || 0);
+            content.dataset.rotation = (currentRotation + 90) % 360;
+            applyTransform(content);
+        }
+        function flipSelected() {
+            if (!selectedElement) return;
+            const content = selectedElement.querySelector('iframe, video, img');
+            content.classList.toggle('flipped');
+            applyTransform(content);
+        }
+        function duplicateSelected() {
+            if (!selectedElement) return;
+            const src = selectedElement.querySelector('iframe, video, img').src;
+            createContentView([src], false);
+        }
+        function changeSelectedVideoVolume(value) {
+            if (!selectedElement) return;
+            const video = selectedElement.querySelector('video');
+            if (video) {
+                video.muted = (value == 0);
+                video.volume = value;
+                updateSelectedVideoUI(video);
+            }
+        }
+        function changeSelectedVideoPlaybackRate(rate) {
+            if (!selectedElement) return;
+            const video = selectedElement.querySelector('video');
+            if (video) {
+                video.playbackRate = rate;
+                updateSelectedVideoUI(video); // BUG FIX: UIを直接更新
+            }
+        }
+
+        // --- Global Controls ---
+        function adjustColumnCount(value) {
+            if (isSpotlightMode) return;
+            document.getElementById('content-container').style.gridTemplateColumns = `repeat(${value}, 1fr)`;
+            document.getElementById('columnCountValue').textContent = value;
+        }
+        function adjustGap(value) {
+            if (isSpotlightMode) return;
+            document.getElementById('content-container').style.gap = `${value}px`;
+            document.getElementById('gapSliderValue').textContent = value;
+        }
+        function setAspectRatioMode(mode, updateButtons = true) {
+            document.querySelectorAll('iframe, video, img').forEach(el => el.style.objectFit = mode);
+            if(updateButtons) {
+                document.getElementById('fit-mode-btn').classList.toggle('active', mode === 'contain');
+                document.getElementById('fill-mode-btn').classList.toggle('active', mode === 'cover');
+            }
+        }
+        function optimizeLayout() {
+            if (isSpotlightMode) return;
+            const count = document.getElementById('content-container').children.length;
+            if (count > 0) {
+                const cols = Math.ceil(Math.sqrt(count));
+                document.getElementById('columnCount').value = cols;
+                adjustColumnCount(cols);
+            }
+        }
+        function playAllVideos() { document.querySelectorAll('video').forEach(v => v.play().catch(e => console.log("Autoplay may be blocked by the browser."))); }
+        function pauseAllVideos() { document.querySelectorAll('video').forEach(v => v.pause()); }
+        function toggleAllMute() {
+            const videos = document.querySelectorAll('video');
+            if (videos.length === 0) return;
+            const isAnyMuted = Array.from(videos).some(v => v.muted);
+            videos.forEach(v => v.muted = !isAnyMuted);
+        }
+        function reloadAll() { document.querySelectorAll('iframe, video, img').forEach(el => { el.src = el.src; }); }
+        
+        function equalizeAllVolumes() {
+            const audibleVideos = Array.from(document.querySelectorAll('video')).filter(v => !v.muted && v.volume > 0);
+            if (audibleVideos.length < 2) {
+                alert('均一化の対象となる音声付き動画が2つ以上ありません。');
+                return;
+            }
+            const targetVolume = 1.0 / audibleVideos.length;
+            audibleVideos.forEach(v => {
+                v.volume = targetVolume;
+            });
+            if (selectedElement && audibleVideos.includes(selectedElement.querySelector('video'))) {
+                updateSelectedVideoUI(selectedElement.querySelector('video'));
+            }
+            alert(`${audibleVideos.length}個の動画の音量をそれぞれ${Math.round(targetVolume * 100)}%に調整しました。`);
+        }
+        
+        // --- Spotlight Mode ---
+        function toggleSpotlightMode() {
+            const container = document.getElementById('content-container');
+            if (container.children.length === 0) return;
+            if (!selectedElement && !isSpotlightMode) {
+                selectElement(container.firstElementChild);
+            }
+            isSpotlightMode = !isSpotlightMode;
+            document.body.classList.toggle('spotlight-mode', isSpotlightMode);
+            document.getElementById('spotlight-mode-btn').classList.toggle('active', isSpotlightMode);
+            
+            const controls = ['columnCount', 'gapSlider', 'fit-mode-btn', 'fill-mode-btn'];
+            controls.forEach(id => document.getElementById(id).disabled = isSpotlightMode);
+            
+            updateSpotlightLayout();
+        }
+
+        function updateSpotlightLayout() {
+            const container = document.getElementById('content-container');
+            const wrappers = Array.from(container.children);
+            
+            if (isSpotlightMode) {
+                let currentSpot = container.querySelector('.spotlight');
+                if (!currentSpot) {
+                    currentSpot = selectedElement || container.firstElementChild;
+                    currentSpot.classList.add('spotlight');
+                }
+                if (selectedElement !== currentSpot) updateSelection(currentSpot);
+
+                let thumbTop = 10;
+                wrappers.forEach(w => {
+                    if (w !== currentSpot) {
+                        w.style.top = `${thumbTop}px`;
+                        thumbTop += 135 + 10; // thumbnail height + gap
+                    }
+                });
+            } else {
+                wrappers.forEach(w => {
+                    w.classList.remove('spotlight');
+                    w.style.top = '';
+                    w.style.right = '';
+                });
+                adjustColumnCount(document.getElementById('columnCount').value);
+                adjustGap(document.getElementById('gapSlider').value);
+            }
+        }
+
+        // --- Drag & Drop ---
+        function setupDragAndDrop() {
+            const dropZone = document.getElementById('drop-zone');
+            const body = document.body;
+            
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                body.addEventListener(eventName, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                });
+            });
+            ['dragenter', 'dragover'].forEach(eventName => dropZone.addEventListener(eventName, () => dropZone.classList.add('dragover')));
+            ['dragleave', 'drop'].forEach(eventName => dropZone.addEventListener(eventName, () => dropZone.classList.remove('dragover')));
+            
+            dropZone.addEventListener('drop', (e) => {
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    const urls = Array.from(files).map(file => URL.createObjectURL(file));
+                    createContentView(urls, false);
+                }
+            });
+        }
+        
+        // --- State Management (URL & Presets) ---
+        function saveStateToUrl() {
+            const urls = Array.from(document.querySelectorAll('#content-container > .content-wrapper > *'))
+                .map(el => el.src)
+                .filter(src => !src.startsWith('blob:'));
+            if(urls.length !== document.querySelectorAll('#content-container > .content-wrapper').length) {
+                alert('警告: ローカルファイルは共有URLに含まれません。Web上のURLのみが保存されます。');
+            }
+            if (urls.length === 0) { alert('共有できるURLがありません。'); return; }
+
+            const params = new URLSearchParams();
+            urls.forEach(url => params.append('url', encodeURIComponent(url)));
+            params.set('cols', document.getElementById('columnCount').value);
+            params.set('gap', document.getElementById('gapSlider').value);
+            
+            const newUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}?${params.toString()}`;
+            window.history.pushState({ path: newUrl }, '', newUrl);
+            navigator.clipboard.writeText(newUrl).then(() => alert('共有URLをクリップボードにコピーしました。'));
+        }
+        function loadStateFromUrl() {
+            const params = new URLSearchParams(window.location.search);
+            const urls = params.getAll('url').map(url => decodeURIComponent(url));
+            if (urls.length > 0) {
+                createContentView(urls, true);
+                const cols = params.get('cols') || Math.ceil(Math.sqrt(urls.length));
+                const gap = params.get('gap') || 5;
+                document.getElementById('columnCount').value = cols;
+                adjustColumnCount(cols);
+                document.getElementById('gapSlider').value = gap;
+                adjustGap(gap);
+            }
+        }
+        function savePreset() {
+            const slot = document.getElementById('preset-slot').value;
+            const urls = Array.from(document.querySelectorAll('#content-container > .content-wrapper > *'))
+                .map(el => el.src)
+                .filter(src => !src.startsWith('blob:'));
+            if (urls.length > 0) {
+                localStorage.setItem(`preset_${slot}`, JSON.stringify(urls));
+                alert(`現在のURLの組み合わせをプリセット${slot}に保存しました。`);
+                renderPresetButtons();
+            } else {
+                alert('保存するURLがありません。(ローカルファイルは保存できません)');
+            }
+        }
+        function loadPreset(slot) {
+            const urlsJson = localStorage.getItem(`preset_${slot}`);
+            if (urlsJson) {
+                createContentView(JSON.parse(urlsJson), true);
+            } else {
+                alert(`プリセット${slot}は空です。`);
+            }
+        }
+        function deletePreset() {
+            const slot = document.getElementById('preset-slot').value;
+            if (localStorage.getItem(`preset_${slot}`)) {
+                if (confirm(`プリセット${slot}を本当に削除しますか？`)) {
+                    localStorage.removeItem(`preset_${slot}`);
+                    alert(`プリセット${slot}を削除しました。`);
+                    renderPresetButtons();
+                }
+            } else {
+                alert(`プリセット${slot}は空です。`);
+            }
+        }
+        function renderPresetButtons() {
+            const container = document.getElementById('preset-buttons');
+            container.innerHTML = '';
+            for (let i = 1; i <= presetSlotCount; i++) {
+                const button = document.createElement('button');
+                button.textContent = i;
+                if (localStorage.getItem(`preset_${i}`)) {
+                    button.title = `プリセット${i}を読み込む`;
+                    button.onclick = () => loadPreset(i);
+                } else {
+                    button.disabled = true;
+                    button.title = `プリセット${i}は空です`;
+                }
+                container.appendChild(button);
+            }
+        }
+
+        // --- Keyboard Shortcuts ---
+        function setupKeyboardShortcuts() {
+            document.addEventListener('keydown', (e) => {
+                if (document.querySelector('.modal-overlay.visible')) return;
+                if (e.target.tagName === 'INPUT' && e.target.type !== 'range') return;
+
+                if (e.key === '?') { showModal('help-modal'); return; }
+                
+                if (e.key.startsWith('Arrow')) {
+                    e.preventDefault();
+                    navigateGrid(e.key);
+                } else if (e.key >= '1' && e.key <= '9') {
+                    const el = document.querySelector(`.content-wrapper[data-index='${e.key}']`);
+                    if (el) selectElement(el);
+                } else if (e.key === 'Delete' || e.key === 'Backspace') {
+                    removeSelected();
+                } else if (e.key.toLowerCase() === 'r') {
+                    reloadSelected();
+                } else if (e.key.toLowerCase() === 'd') {
+                    duplicateSelected();
+                } else if (e.key.toLowerCase() === 'f') {
+                    toggleImmersiveMode();
+                } else if (e.key === 'Enter') {
+                    if (selectedElement) selectedElement.querySelector('iframe,video,img')?.requestFullscreen();
+                } else if (e.key === '=' || e.key === '+') {
+                     const slider = document.getElementById('columnCount');
+                     slider.value = Math.min(parseInt(slider.value) + 1, slider.max);
+                     adjustColumnCount(slider.value);
+                } else if (e.key === '-') {
+                     const slider = document.getElementById('columnCount');
+                     slider.value = Math.max(parseInt(slider.value) - 1, slider.min);
+                     adjustColumnCount(slider.value);
+                } else if (selectedElement && selectedElement.querySelector('video')) {
+                    const video = selectedElement.querySelector('video');
+                    if (e.code === 'Space') { e.preventDefault(); video.paused ? video.play() : video.pause(); }
+                    if (e.key.toLowerCase() === 'm') { video.muted = !video.muted; }
+                } else if (e.altKey && e.key.toLowerCase() === 'p') {
+                    playAllVideos();
+                } else if (e.altKey && e.key.toLowerCase() === 's') {
+                    pauseAllVideos();
+                }
+            });
+        }
+        function navigateGrid(key) {
+            if (isSpotlightMode) return;
+            if (!selectedElement) {
+                const first = document.querySelector('.content-wrapper');
+                if (first) selectElement(first);
+                return;
+            }
+            const items = Array.from(document.querySelectorAll('.content-wrapper'));
+            const currentIndex = items.indexOf(selectedElement);
+            const cols = parseInt(document.getElementById('columnCount').value);
+            let nextIndex = -1;
+
+            switch (key) {
+                case 'ArrowLeft':  nextIndex = currentIndex % cols === 0 ? currentIndex : currentIndex - 1; break;
+                case 'ArrowRight': nextIndex = (currentIndex + 1) % cols === 0 || (currentIndex + 1 >= items.length) ? currentIndex : currentIndex + 1; break;
+                case 'ArrowUp':    nextIndex = currentIndex - cols; break;
+                case 'ArrowDown':  nextIndex = currentIndex + cols; break;
+            }
+
+            if (nextIndex >= 0 && nextIndex < items.length) {
+                selectElement(items[nextIndex]);
+            }
+        }
+        
+        // --- Theme, Modals & Immersive Mode ---
+        function toggleTheme() {
+            document.body.classList.toggle('light-theme');
+            document.body.classList.toggle('dark-theme');
+            document.getElementById('theme-name').textContent = document.body.classList.contains('dark-theme') ? 'ダーク' : 'ライト';
+        }
+        function showModal(id) {
+            if (id === 'help-modal') renderCustomLinks('custom-links-container-help');
+            if (id === 'terms-modal') renderCustomLinks('custom-links-container-terms');
+            if (id === 'easter-egg-modal') {
+                document.getElementById('background-image-url').value = localStorage.getItem('bgImageUrl') || '';
+                renderSecretPresetButtons();
+                renderCustomLinksManager();
+            }
+            document.getElementById(id).classList.add('visible');
+        }
+        function closeAllModals() { document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('visible')); }
+
+        function toggleImmersiveMode() {
+            document.body.classList.toggle('immersive-mode');
+        }
+
+        function setupImmersiveModePeek() {
+            const leftSidebar = document.getElementById('left-sidebar');
+            const rightSidebar = document.getElementById('right-sidebar');
+            const footer = document.getElementById('footer-controls');
+            const peekThreshold = 10;
+            const topMargin = 30;
+
+            document.addEventListener('mousemove', e => {
+                if (!document.body.classList.contains('immersive-mode')) return;
+                
+                const isCursorAtTop = e.clientY < topMargin;
+
+                if (e.clientX < peekThreshold && !isCursorAtTop) leftSidebar.classList.add('peek');
+                if (e.clientX > window.innerWidth - peekThreshold && !isCursorAtTop) rightSidebar.classList.add('peek');
+                if (e.clientY > window.innerHeight - peekThreshold) footer.classList.add('peek');
+            });
+            
+            leftSidebar.addEventListener('mouseleave', () => leftSidebar.classList.remove('peek'));
+            rightSidebar.addEventListener('mouseleave', () => rightSidebar.classList.remove('peek'));
+            footer.addEventListener('mouseleave', () => footer.classList.remove('peek'));
+        }
+
+        // --- Easter Egg Features ---
+        function setupEasterEggTrigger() {
+            document.getElementById('easter-egg-trigger').addEventListener('click', () => {
+                showModal('easter-egg-modal');
+            });
+        }
+
+        function loadEasterEggSettings() {
+            // Preset Slot Count
+            presetSlotCount = parseInt(localStorage.getItem('presetSlotCount') || '5');
+            document.getElementById('preset-slot-count').value = presetSlotCount;
+            document.getElementById('preset-slot-count-value').textContent = presetSlotCount;
+            updatePresetSelects();
+            
+            // Background Image
+            const bgImageUrl = localStorage.getItem('bgImageUrl');
+            if (bgImageUrl) {
+                document.body.style.backgroundImage = `url('${bgImageUrl}')`;
+            }
+        }
+
+        function updatePresetSlotCount(value) {
+            presetSlotCount = parseInt(value);
+            document.getElementById('preset-slot-count-value').textContent = presetSlotCount;
+            localStorage.setItem('presetSlotCount', presetSlotCount);
+            updatePresetSelects();
+            renderPresetButtons();
+        }
+        
+        function updatePresetSelects() {
+            const select = document.getElementById('preset-slot');
+            select.innerHTML = '';
+            for (let i = 1; i <= presetSlotCount; i++) {
+                const option = document.createElement('option');
+                option.value = i;
+                option.textContent = `スロット${i}`;
+                select.appendChild(option);
+            }
+        }
+        
+        function setBackgroundImage() {
+            const url = document.getElementById('background-image-url').value.trim();
+            if (url) {
+                document.body.style.backgroundImage = `url('${url}')`;
+                localStorage.setItem('bgImageUrl', url);
+            }
+        }
+        
+        function clearBackgroundImage() {
+            document.body.style.backgroundImage = '';
+            localStorage.removeItem('bgImageUrl');
+            document.getElementById('background-image-url').value = '';
+        }
+
+        function saveSecretPreset() {
+            const slot = document.getElementById('secret-preset-slot').value;
+            const urls = Array.from(document.querySelectorAll('#content-container > .content-wrapper > *'))
+                .map(el => el.src).filter(src => !src.startsWith('blob:'));
+            if (urls.length > 0) {
+                localStorage.setItem(`secret_preset_${slot}`, JSON.stringify(urls));
+                alert(`現在のレイアウトを隠しプリセット${slot}に保存しました。`);
+                renderSecretPresetButtons();
+            } else {
+                alert('保存するURLがありません。');
+            }
+        }
+
+        function loadSecretPreset(slot) {
+            const urlsJson = localStorage.getItem(`secret_preset_${slot}`);
+            if (urlsJson) createContentView(JSON.parse(urlsJson), true);
+        }
+
+        function deleteSecretPreset() {
+            const slot = document.getElementById('secret-preset-slot').value;
+            if (confirm(`隠しプリセット${slot}を本当に削除しますか？`)) {
+                localStorage.removeItem(`secret_preset_${slot}`);
+                alert(`隠しプリセット${slot}を削除しました。`);
+                renderSecretPresetButtons();
+            }
+        }
+
+        function renderSecretPresetButtons() {
+            const container = document.getElementById('secret-preset-buttons');
+            container.innerHTML = '';
+            for (let i = 1; i <= 3; i++) {
+                const button = document.createElement('button');
+                button.textContent = `S${i}`;
+                if (localStorage.getItem(`secret_preset_${i}`)) {
+                    button.onclick = () => loadSecretPreset(i);
+                } else {
+                    button.disabled = true;
+                }
+                container.appendChild(button);
+            }
+        }
+        
+        function getCustomLinks() {
+            return JSON.parse(localStorage.getItem('custom_links') || '[]');
+        }
+
+        function saveCustomLinks(links) {
+            localStorage.setItem('custom_links', JSON.stringify(links));
+        }
+
+        function addCustomLink() {
+            const nameInput = document.getElementById('new-link-name');
+            const urlInput = document.getElementById('new-link-url');
+            const name = nameInput.value.trim();
+            let url = urlInput.value.trim();
+
+            if (name && url) {
+                if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                    url = 'https://' + url;
+                }
+                const links = getCustomLinks();
+                links.push({ name, url });
+                saveCustomLinks(links);
+                nameInput.value = '';
+                urlInput.value = '';
+                renderCustomLinksManager();
+            } else {
+                alert('リンク名とURLの両方を入力してください。');
+            }
+        }
+
+        function removeCustomLink(index) {
+            if (confirm('このショートカットを削除しますか？')) {
+                const links = getCustomLinks();
+                links.splice(index, 1);
+                saveCustomLinks(links);
+                renderCustomLinksManager();
+            }
+        }
+
+        function renderCustomLinksManager() {
+            const container = document.getElementById('custom-links-manager');
+            const links = getCustomLinks();
+            container.innerHTML = '';
+            if (links.length === 0) {
+                container.textContent = 'カスタムリンクはありません。';
+                return;
+            }
+            links.forEach((link, index) => {
+                const item = document.createElement('div');
+                item.className = 'custom-link-manager-item';
+                item.innerHTML = `
+                    <span><b>${link.name}</b>: ${link.url}</span>
+                    <button class="danger-button" onclick="removeCustomLink(${index})">削除</button>
+                `;
+                container.appendChild(item);
+            });
+        }
+        
+        function renderCustomLinks(containerId) {
+            const links = getCustomLinks();
+            const container = document.getElementById(containerId);
+            container.innerHTML = ''; // Clear previous links
+            if (links.length > 0) {
+                const group = document.createElement('div');
+                group.className = 'button-group';
+                group.style.marginTop = '15px';
+                group.style.flexWrap = 'wrap';
+                group.style.justifyContent = 'flex-start';
+                
+                const label = document.createElement('label');
+                label.textContent = 'URLショートカット:';
+                label.style.width = '100%';
+                label.style.marginBottom = '8px';
+                container.appendChild(label);
+                
+                links.forEach(link => {
+                    const button = document.createElement('button');
+                    button.textContent = link.name;
+                    button.title = link.url;
+                    button.style.flexGrow = '0'; // Don't stretch buttons
+                    button.onclick = () => window.open(link.url, '_blank', 'noopener,noreferrer');
+                    group.appendChild(button);
+                });
+                container.appendChild(group);
+            }
+        }
+
+    </script>
+</body>
+</html>
