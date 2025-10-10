@@ -352,7 +352,7 @@
         </div>
         <hr>
         <button onclick="showModal('help-modal')">？ 使い方</button>
-        <button onclick="showModal('terms-modal')" style="margin-top:5px;">利用規約</button>
+        <button onclick="showModal('terms-modal-static')" style="margin-top:5px;">利用規約</button>
     </div>
 
     <!-- Modals -->
@@ -384,17 +384,47 @@
             <button onclick="closeAllModals()" style="margin-top: 15px;">閉じる</button>
         </div>
     </div>
-    <div id="terms-modal" class="modal-overlay" onclick="closeAllModals()">
+    
+    <!-- 利用規約モーダル（初回同意用） -->
+    <div id="terms-modal" class="modal-overlay">
         <div class="modal-content" onclick="event.stopPropagation()">
             <h2>利用規約・免責事項</h2>
-            <p>本ツールは、ウェブページやメディアファイルを表示するためのクライアントサイドアプリケーションです。サーバーへのデータ送信は一切行いません。</p>
+            <p>本ツールの利用を開始する前に、必ず以下の利用規約をお読みください。利用を開始した時点で、本規約に同意したものとみなします。</p>
             <ol>
-                <li><b>コンテンツの著作権:</b> 本ツールを利用して表示されるコンテンツの著作権は、各コンテンツの制作者または権利者に帰属します。ユーザーは、各国の著作権法を遵守する責任を負います。</li>
-                <li><b>表示の制約:</b> 一部のウェブサイトは、セキュリティポリシー（X-Frame-Optionsなど）により、本ツール内に表示できない場合があります。これはウェブサイト側の仕様であり、本ツールの不具合ではありません。</li>
-                <li><b>免責事項:</b> 本ツールの利用によって生じたいかなる損害についても、開発者は一切の責任を負いません。自己責任でご利用ください。</li>
+                <li><strong>コンテンツに関する責任</strong><br>
+                    利用者が本ツールを使用して表示、共有するすべてのコンテンツ（URL、ファイル等）に関する責任は、すべて利用者自身に帰属します。コンテンツが第三者の著作権、肖像権、その他の権利を侵害しないことを確認の上、ご利用ください。</li>
+                <li><strong>共有機能の利用</strong><br>
+                    「共有URL発行」機能によって生成されたURLの内容は、全て作成した利用者の責任となります。共有されたURLによって生じたいかなる紛争や損害についても、開発者は一切関与せず、責任を負いません。各自の責任の下で、法令や公序良俗に反しない範囲でご利用ください。</li>
+                <li><strong>表示の制約</strong><br>
+                    一部のウェブサイトは、セキュリティポリシー（X-Frame-Optionsなど）により、本ツール内に表示できない場合があります。これはウェブサイト側の仕様であり、本ツールの不具合ではありません。</li>
+                <li><strong>免責事項</strong><br>
+                    本ツールの利用によって生じたいかなる損害（データの消失、利用機会の逸失、その他間接的、派生的損害を含む）についても、開発者は一切の責任を負いません。本ツールは現状有姿で提供され、開発者はその完全性、正確性、有用性についていかなる保証も行いません。自己責任でご利用ください。</li>
+                <li><strong>規約の変更</strong><br>
+                    開発者は、必要に応じて予告なく本規約を変更することがあります。</li>
+            </ol>
+            <button id="agree-to-terms-button" style="margin-top: 15px; width:100%; padding: 12px; font-size: 16px; background-color: var(--primary-color);">同意して利用を開始する</button>
+        </div>
+    </div>
+
+    <!-- 利用規約モーダル（再表示用） -->
+     <div id="terms-modal-static" class="modal-overlay" onclick="closeAllModals()">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <h2>利用規約・免責事項</h2>
+            <p>本ツールの利用を開始する前に、必ず以下の利用規約をお読みください。利用を開始した時点で、本規約に同意したものとみなします。</p>
+            <ol>
+                <li><strong>コンテンツに関する責任</strong><br>
+                    利用者が本ツールを使用して表示、共有するすべてのコンテンツ（URL、ファイル等）に関する責任は、すべて利用者自身に帰属します。コンテンツが第三者の著作権、肖像権、その他の権利を侵害しないことを確認の上、ご利用ください。</li>
+                <li><strong>共有機能の利用</strong><br>
+                    「共有URL発行」機能によって生成されたURLの内容は、全て作成した利用者の責任となります。共有されたURLによって生じたいかなる紛争や損害についても、開発者は一切関与せず、責任を負いません。各自の責任の下で、法令や公序良俗に反しない範囲でご利用ください。</li>
+                <li><strong>表示の制約</strong><br>
+                    一部のウェブサイトは、セキュリティポリシー（X-Frame-Optionsなど）により、本ツール内に表示できない場合があります。これはウェブサイト側の仕様であり、本ツールの不具合ではありません。</li>
+                <li><strong>免責事項</strong><br>
+                    本ツールの利用によって生じたいかなる損害（データの消失、利用機会の逸失、その他間接的、派生的損害を含む）についても、開発者は一切の責任を負いません。本ツールは現状有姿で提供され、開発者はその完全性、正確性、有用性についていかなる保証も行いません。自己責任でご利用ください。</li>
+                <li><strong>規約の変更</strong><br>
+                    開発者は、必要に応じて予告なく本規約を変更することがあります。</li>
             </ol>
             <div id="custom-links-container-terms"></div>
-            <button onclick="closeAllModals()" style="margin-top: 15px;">同意して閉じる</button>
+            <button onclick="closeAllModals()" style="margin-top: 15px;">閉じる</button>
         </div>
     </div>
     
@@ -449,11 +479,30 @@
 
         // --- Initialization ---
         document.addEventListener('DOMContentLoaded', () => {
-            loadEasterEggSettings();
-            if (!localStorage.getItem('visited')) {
+            // --- 利用規約の同意チェック ---
+            if (localStorage.getItem('agreedToTerms_v1') !== 'true') {
+                const modal = document.getElementById('terms-modal');
+                const agreeButton = document.getElementById('agree-to-terms-button');
+                
+                modal.classList.add('visible');
+                
+                agreeButton.onclick = () => {
+                    localStorage.setItem('agreedToTerms_v1', 'true');
+                    modal.classList.remove('visible');
+                    // 同意後、初回ならヘルプを表示
+                    if (!localStorage.getItem('visited')) {
+                        showModal('help-modal');
+                        localStorage.setItem('visited', 'true');
+                    }
+                };
+            } else if (!localStorage.getItem('visited')) {
+                // 同意済みだが、初回訪問の場合
                 showModal('help-modal');
                 localStorage.setItem('visited', 'true');
             }
+
+            // --- アプリケーション本体の初期化 ---
+            loadEasterEggSettings();
             setupDragAndDrop();
             setupKeyboardShortcuts();
             setupImmersiveModePeek();
@@ -976,7 +1025,7 @@
         }
         function showModal(id) {
             if (id === 'help-modal') renderCustomLinks('custom-links-container-help');
-            if (id === 'terms-modal') renderCustomLinks('custom-links-container-terms');
+            if (id === 'terms-modal-static') renderCustomLinks('custom-links-container-terms');
             if (id === 'easter-egg-modal') {
                 document.getElementById('background-image-url').value = localStorage.getItem('bgImageUrl') || '';
                 renderSecretPresetButtons();
