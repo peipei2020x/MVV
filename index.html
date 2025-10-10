@@ -37,7 +37,6 @@
             overflow: hidden;
             display: flex;
             height: 100vh;
-            /* 背景画像用のスタイルを追加 */
             background-size: cover;
             background-position: center center;
             background-attachment: fixed;
@@ -70,18 +69,33 @@
             padding: 5px;
             gap: 5px;
             overflow: hidden;
+            counter-reset: content-counter;
         }
         #footer-controls {
+            position: relative;
             flex-shrink: 0;
             background-color: var(--bg-secondary-color);
-            padding: 8px;
+            padding: 8px 15px;
             border-top: 1px solid var(--border-color);
             display: flex;
             justify-content: center;
             align-items: center;
-            gap: 10px;
+            gap: 12px;
             flex-wrap: wrap;
         }
+        .footer-group {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .footer-group:not(:last-child)::after {
+            content: '';
+            width: 1px;
+            height: 20px;
+            background-color: var(--border-color);
+            margin-left: 10px;
+        }
+
         /* --- Immersive Mode --- */
         body.immersive-mode #left-sidebar,
         body.immersive-mode #right-sidebar,
@@ -93,7 +107,7 @@
         body.immersive-mode #left-sidebar { top: 0; left: 0; transform: translateX(-100%); }
         body.immersive-mode #right-sidebar { top: 0; right: 0; transform: translateX(100%); }
         body.immersive-mode #footer-controls { bottom: 0; left: 0; right: 0; transform: translateY(100%); }
-        
+
         body.immersive-mode #main-container {
             width: 100vw;
             height: 100vh;
@@ -113,9 +127,10 @@
 
         /* --- UI Elements --- */
         h3 { margin-top: 0; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; }
-        #easter-egg-trigger { cursor: help; user-select: none;} /* イースターエッグ用 */
+        #easter-egg-trigger { cursor: help; user-select: none;}
         .setting-group { margin-bottom: 20px; }
         .setting-group label { display: block; margin-bottom: 8px; font-size: 14px; user-select: none; }
+        .radio-group label { display: inline-block; margin-right: 10px; }
         input[type="range"] { width: 100%; }
         input[type="text"], input[type="number"], select {
             width: 100%;
@@ -151,6 +166,35 @@
             border-radius: 4px;
             overflow: hidden;
             transition: all 0.3s ease-in-out;
+            cursor: grab;
+        }
+        .content-wrapper.dragging {
+            opacity: 0.5;
+            border: 2px dashed var(--primary-color);
+        }
+        .content-wrapper::before {
+            content: counter(content-counter);
+            counter-increment: content-counter;
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            background: rgba(0, 0, 0, 0.75);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            z-index: 11;
+            pointer-events: none;
+            opacity: 0.8;
+            transition: opacity 0.2s;
+        }
+        .content-wrapper:hover::before { opacity: 1; }
+        body.spotlight-mode .content-wrapper::before, body.immersive-mode .content-wrapper::before {
+             opacity: 0;
+        }
+        body.hide-content-numbers .content-wrapper::before {
+            display: none;
         }
         .content-loader {
             position: absolute;
@@ -167,14 +211,18 @@
         iframe, video, img {
             width: 100%;
             height: 100%;
-            border: 2px solid transparent;
+            border: 3px solid transparent;
             box-sizing: border-box;
             object-fit: contain;
             transition: transform 0.3s, border 0.2s;
             background-color: #000;
         }
         iframe.fill-mode, video.fill-mode, img.fill-mode { object-fit: cover; }
-        .selected { border: 2px solid var(--primary-color); box-shadow: 0 0 10px var(--primary-color); z-index: 10; }
+        .selected {
+             border: 3px solid var(--primary-color);
+             box-shadow: 0 0 12px var(--primary-color);
+             z-index: 10;
+        }
 
         /* --- Spotlight (Main-focus) Mode --- */
         body.spotlight-mode #content-container {
@@ -184,8 +232,8 @@
         body.spotlight-mode .content-wrapper {
             position: absolute;
             right: 10px;
-            width: 240px;      /* पहले से बड़ा */
-            height: 135px;     /* 16:9 Aspect Ratio */
+            width: 240px;
+            height: 135px;
             z-index: 5;
             cursor: pointer;
         }
@@ -197,15 +245,15 @@
             position: absolute;
             top: 0;
             left: 0;
-            width: calc(100% - 260px); /* サムネイル領域を確保 */
+            width: calc(100% - 260px);
             height: 100%;
             z-index: 7;
             cursor: default;
         }
         body.spotlight-mode .content-wrapper.spotlight:hover {
-            transform: none; /* 主軸は拡大しない */
+            transform: none;
         }
-        
+
         /* --- Left Sidebar Specifics --- */
         #url-inputs { max-height: 250px; overflow-y: auto; margin-bottom: 10px; }
         .url-input { display: flex; gap: 5px; margin-bottom: 5px; }
@@ -218,7 +266,7 @@
         }
         #drop-zone.dragover { background-color: var(--button-bg-color); border-color: var(--primary-color); }
 
-        /* --- Modal --- */
+        /* --- Modal & Popups --- */
         .modal-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0, 0, 0, 0.7);
@@ -239,6 +287,22 @@
         .modal-content code { background: var(--bg-color); padding: 2px 5px; border-radius: 3px; }
         .custom-link-manager-item { display: flex; align-items: center; gap: 10px; margin-bottom: 5px; font-size: 14px; }
         .custom-link-manager-item span { flex-grow: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        
+        .popup-menu {
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: var(--bg-secondary-color);
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            padding: 5px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            z-index: 110;
+            display: flex;
+            gap: 5px;
+            margin-bottom: 5px;
+        }
     </style>
 </head>
 <body class="dark-theme">
@@ -282,14 +346,35 @@
     <div id="main-container">
         <div id="content-container"></div>
         <div id="footer-controls">
-            <button onclick="playAllVideos()">▶ 一斉再生</button>
-            <button onclick="pauseAllVideos()">❚❚ 一斉停止</button>
-            <button onclick="toggleAllMute()">🔇 ミュート/解除</button>
-            <button onclick="equalizeAllVolumes()">🔊 音量均一化</button>
-            <button onclick="reloadAll()">🔄 一斉リロード</button>
-            <button onclick="saveStateToUrl()">🔗 共有URL発行</button>
-            <button id="spotlight-mode-btn" onclick="toggleSpotlightMode()">👁️‍🗨️ 主軸モード</button>
-            <button onclick="toggleImmersiveMode()">👁️ 没入モード</button>
+            <div class="footer-group">
+                <button onclick="rewindAllVideos()" title="全ての動画を最初まで巻き戻します">⏪ 巻戻し</button>
+                <button onclick="playAllVideos()">▶ 再生</button>
+                <button onclick="pauseAllVideos()">❚❚ 停止</button>
+            </div>
+            <div class="footer-group">
+                <button onclick="toggleAllMute()">🔇 ミュート</button>
+                <button onclick="equalizeAllVolumes()">🔊 音量均一化</button>
+                <!-- ★★★ 修正点1: ポップアップメニューをHTML構造的にボタンの親要素内へ移動 ★★★ -->
+                <div style="position: relative;">
+                    <button id="playback-rate-all-btn" title="全ての動画の再生速度を一括で変更します">💨 速度変更</button>
+                    <div id="playback-rate-popup" class="popup-menu" style="visibility: hidden;">
+                        <button onclick="setAllPlaybackRates(0.5)">0.5x</button>
+                        <button onclick="setAllPlaybackRates(1.0)">1.0x</button>
+                        <button onclick="setAllPlaybackRates(1.5)">1.5x</button>
+                        <button onclick="setAllPlaybackRates(2.0)">2.0x</button>
+                        <button onclick="setAllPlaybackRates(2.5)">2.5x</button>
+                    </div>
+                </div>
+            </div>
+             <div class="footer-group">
+                <button onclick="syncPlaybackTime()" title="同じ動画、または同じ長さの動画の再生位置を同期します">⏳ 位置同期</button>
+                <button onclick="reloadAll()">🔄 リロード</button>
+                <button onclick="saveStateToUrl()">🔗 共有URL</button>
+            </div>
+            <div class="footer-group">
+                <button id="spotlight-mode-btn" onclick="toggleSpotlightMode()">👁️‍🗨️ 主軸モード</button>
+                <button onclick="toggleImmersiveMode()">👁️ 没入モード</button>
+            </div>
         </div>
     </div>
 
@@ -319,9 +404,14 @@
             <button onclick="optimizeLayout()" style="width: 100%;">レイアウト最適化</button>
         </div>
         <div class="setting-group">
-            <label style="display:inline-flex; align-items: center; gap: 5px;">
+            <label style="display:inline-flex; align-items: center; gap: 5px; user-select: none;">
                 <input type="checkbox" id="muteOthersOnSelect" onchange="updateSelection(selectedElement)">
                 <span>選択時に他をミュート</span>
+            </label>
+            <br>
+            <label style="display:inline-flex; align-items: center; gap: 5px; user-select: none; margin-top: 10px;">
+                <input type="checkbox" id="showContentNumbers" onchange="toggleContentNumbers(this.checked)" checked>
+                <span>コンテンツ番号を表示</span>
             </label>
         </div>
         <hr>
@@ -360,7 +450,7 @@
         <div class="modal-content" onclick="event.stopPropagation()">
             <h2>使い方ガイド</h2>
             <p><b>コンテンツの追加:</b><br>左のパネルでURLを入力し「読み込み」を押すか、動画/画像ファイルを点線エリアにドラッグ＆ドロップで「追加」します。</p>
-            <p><b>レイアウト調整:</b><br>右のパネルのスライダーで、全体の列数やコンテンツ間の余白を調整できます。「レイアウト最適化」ボタンも便利です。</p>
+            <p><b>レイアウト調整:</b><br>右のパネルのスライダーで、全体の列数やコンテンツ間の余白を調整できます。「レイアウト最適化」ボタンも便利です。<b>各コンテンツはドラッグ＆ドロップで並べ替えも可能</b>です。</p>
             <p><b>個別操作:</b><br>中央のコンテンツをクリックで選択（青枠が付きます）。選択後、右パネルでURL変更、回転、反転、複製、削除ができます。動画の場合は音量や再生速度も調整可能です。</p>
             <p><b>音量均一化:</b><br>下の「🔊」ボタンで、再生中の動画全ての音量を均等に割り振ります。特定の動画だけ音が大きい場合に便利です。</p>
             <p><b>主軸モード:</b><br>下の「👁️‍🗨️」ボタンで、選択中のコンテンツを主役にします。他のコンテンツは右側にサムネイル表示され、クリックで主役を切り替えられます。もう一度ボタンを押すと元のグリッド表示に戻ります。</p>
@@ -385,7 +475,6 @@
         </div>
     </div>
     
-    <!-- 利用規約モーダル（初回同意用） -->
     <div id="terms-modal" class="modal-overlay">
         <div class="modal-content" onclick="event.stopPropagation()">
             <h2>利用規約・免責事項</h2>
@@ -406,7 +495,6 @@
         </div>
     </div>
 
-    <!-- 利用規約モーダル（再表示用） -->
      <div id="terms-modal-static" class="modal-overlay" onclick="closeAllModals()">
         <div class="modal-content" onclick="event.stopPropagation()">
             <h2>利用規約・免責事項</h2>
@@ -428,12 +516,22 @@
         </div>
     </div>
     
-    <!-- Easter Egg Modal -->
     <div id="easter-egg-modal" class="modal-overlay" onclick="closeAllModals()">
         <div class="modal-content" onclick="event.stopPropagation()">
             <h2>秘密の設定パネル</h2>
             <p>よく見つけましたね！ここでは特別な設定ができます。</p>
             <hr>
+            <div class="setting-group">
+                <label>コンテンツ表示モード</label>
+                <div class="radio-group">
+                    <label>
+                        <input type="radio" name="content-mode-easter" value="video" onchange="setContentDisplayMode(this.value)"> 全て動画として開く (デフォルト)
+                    </label>
+                    <label>
+                        <input type="radio" name="content-mode-easter" value="mixed" onchange="setContentDisplayMode(this.value)"> 自動判別 (画像/Webも表示)
+                    </label>
+                </div>
+            </div>
             <div class="setting-group">
                 <label>プリセットスロット数: <span id="preset-slot-count-value">5</span></label>
                 <input type="range" id="preset-slot-count" min="5" max="20" value="5" oninput="updatePresetSlotCount(this.value)">
@@ -466,6 +564,14 @@
                     <button onclick="addCustomLink()">追加</button>
                 </div>
             </div>
+            <div class="setting-group">
+                 <label>全設定のバックアップ</label>
+                 <div class="button-group">
+                    <button onclick="exportSettings()">エクスポート</button>
+                    <button onclick="importSettings()">インポート</button>
+                 </div>
+                 <input type="file" id="import-file-input" accept=".json" style="display:none;">
+            </div>
             <hr>
             <button onclick="closeAllModals()">閉じる</button>
         </div>
@@ -479,7 +585,6 @@
 
         // --- Initialization ---
         document.addEventListener('DOMContentLoaded', () => {
-            // --- 利用規約の同意チェック ---
             if (localStorage.getItem('agreedToTerms_v1') !== 'true') {
                 const modal = document.getElementById('terms-modal');
                 const agreeButton = document.getElementById('agree-to-terms-button');
@@ -489,27 +594,27 @@
                 agreeButton.onclick = () => {
                     localStorage.setItem('agreedToTerms_v1', 'true');
                     modal.classList.remove('visible');
-                    // 同意後、初回ならヘルプを表示
                     if (!localStorage.getItem('visited')) {
                         showModal('help-modal');
                         localStorage.setItem('visited', 'true');
                     }
                 };
             } else if (!localStorage.getItem('visited')) {
-                // 同意済みだが、初回訪問の場合
                 showModal('help-modal');
                 localStorage.setItem('visited', 'true');
             }
 
             // --- アプリケーション本体の初期化 ---
+            loadGeneralSettings();
             loadEasterEggSettings();
             setupDragAndDrop();
             setupKeyboardShortcuts();
             setupImmersiveModePeek();
             setupEasterEggTrigger();
+            setupPopups();
             renderPresetButtons();
             loadStateFromUrl();
-            updateSelection(null); // Initialize panel state
+            updateSelection(null);
         });
 
         // --- Core UI Functions ---
@@ -530,38 +635,38 @@
             const urls = Array.from(document.querySelectorAll('#url-inputs input'))
                 .map(input => input.value.trim())
                 .filter(url => url !== '');
-            if (urls.length > 0) createContentView(urls, true); // Replace all
+            if (urls.length > 0) createContentView(urls, true);
         }
         function clearAllContents() {
             if (confirm('すべてのコンテンツを削除しますか？\nこの操作は元に戻せません。')) {
                 document.getElementById('content-container').innerHTML = '';
-                if(isSpotlightMode) toggleSpotlightMode(); // Exit spotlight mode if active
+                if(isSpotlightMode) toggleSpotlightMode();
                 updateSelection(null);
             }
         }
 
         // --- Content Creation and Management ---
         function createContentView(urls, replace = true) {
-            if (isSpotlightMode) toggleSpotlightMode(); // Always exit spotlight mode on content change
+            if (isSpotlightMode) toggleSpotlightMode();
             const container = document.getElementById('content-container');
             if (replace) {
                 container.innerHTML = '';
             }
-            const startIndex = container.children.length;
+            
+            const displayMode = localStorage.getItem('contentDisplayMode') || 'video';
 
-            urls.forEach((url, index) => {
+            urls.forEach((url) => {
                 const wrapper = document.createElement('div');
                 wrapper.className = 'content-wrapper';
-                wrapper.dataset.index = startIndex + index + 1;
-                
+                wrapper.draggable = true;
+
                 const loader = document.createElement('div');
                 loader.className = 'content-loader';
                 wrapper.appendChild(loader);
 
                 let element;
-                if (url.match(/\.(jpeg|jpg|gif|png|webp|svg)$/i)) {
-                    element = document.createElement('img');
-                } else if (url.match(/\.(mp4|webm|ogg|mov)$/i) || url.startsWith('blob:')) {
+                
+                if (displayMode === 'video') {
                     element = document.createElement('video');
                     element.controls = true;
                     element.muted = true;
@@ -570,9 +675,21 @@
                     element.addEventListener('volumechange', () => updateSelectedVideoUI(element));
                     element.addEventListener('ratechange', () => updateSelectedVideoUI(element));
                 } else {
-                    element = document.createElement('iframe');
-                    element.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-popups allow-presentation');
-                    element.setAttribute('allow', 'autoplay; encrypted-media; fullscreen');
+                    if (url.match(/\.(jpeg|jpg|gif|png|webp|svg)$/i)) {
+                        element = document.createElement('img');
+                    } else if (url.match(/\.(mp4|webm|ogg|mov)$/i) || url.startsWith('blob:')) {
+                        element = document.createElement('video');
+                        element.controls = true;
+                        element.muted = true;
+                        element.autoplay = true;
+                        element.loop = true;
+                        element.addEventListener('volumechange', () => updateSelectedVideoUI(element));
+                        element.addEventListener('ratechange', () => updateSelectedVideoUI(element));
+                    } else {
+                        element = document.createElement('iframe');
+                        element.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-popups allow-presentation');
+                        element.setAttribute('allow', 'autoplay; encrypted-media; fullscreen');
+                    }
                 }
                 
                 element.src = url;
@@ -602,9 +719,17 @@
                 wrapper.appendChild(element);
                 container.appendChild(wrapper);
             });
+            updateContentIndexes();
             adjustColumnCount(document.getElementById('columnCount').value);
             setAspectRatioMode(document.querySelector('#right-sidebar .button-group button.active')?.id === 'fill-mode-btn' ? 'cover' : 'contain', false);
             if(replace) updateSelection(null);
+        }
+
+        function updateContentIndexes() {
+            const wrappers = document.querySelectorAll('#content-container .content-wrapper');
+            wrappers.forEach((wrapper, index) => {
+                wrapper.dataset.index = index + 1;
+            });
         }
         
         function selectElement(wrapper) {
@@ -616,7 +741,7 @@
                 const currentSpot = document.querySelector('.content-wrapper.spotlight');
                 if(currentSpot) currentSpot.classList.remove('spotlight');
                 wrapper.classList.add('spotlight');
-                updateSpotlightLayout(); // BUG FIX: Re-calculate layout after changing spotlight
+                updateSpotlightLayout();
             }
             updateSelection(wrapper);
         }
@@ -696,8 +821,7 @@
                      newSelection.classList.add('spotlight');
                  }
                  updateSelection(newSelection);
-                 
-                 Array.from(parent.children).forEach((child, index) => { child.dataset.index = index + 1; });
+                 updateContentIndexes();
                  if(parent.children.length === 0 && isSpotlightMode) toggleSpotlightMode();
                  else if (isSpotlightMode) updateSpotlightLayout();
             }
@@ -741,7 +865,7 @@
             const video = selectedElement.querySelector('video');
             if (video) {
                 video.playbackRate = rate;
-                updateSelectedVideoUI(video); // BUG FIX: UIを直接更新
+                updateSelectedVideoUI(video);
             }
         }
 
@@ -782,6 +906,86 @@
         }
         function reloadAll() { document.querySelectorAll('iframe, video, img').forEach(el => { el.src = el.src; }); }
         
+        function rewindAllVideos() {
+            document.querySelectorAll('video').forEach(v => v.currentTime = 0);
+        }
+        
+        function setAllPlaybackRates(rate) {
+            const videos = document.querySelectorAll('video');
+            if (videos.length === 0) {
+                alert('対象の動画がありません。');
+                return;
+            }
+            videos.forEach(v => {
+                v.playbackRate = rate;
+            });
+            alert(`全ての動画の再生速度を ${rate}x に変更しました。`);
+            hideAllPopups();
+        }
+        
+        function syncPlaybackTime() {
+            const videos = Array.from(document.querySelectorAll('video'));
+            if (videos.length < 2) {
+                alert('同期対象の動画が2つ以上ありません。');
+                return;
+            }
+
+            const promises = videos.map(v => new Promise(resolve => {
+                if (v.readyState >= 1) resolve(v);
+                else v.addEventListener('loadedmetadata', () => resolve(v), { once: true });
+            }));
+
+            Promise.all(promises).then(loadedVideos => {
+                const groupsBySrc = new Map();
+                const groupsByDuration = new Map();
+                let syncedGroupCount = 0;
+
+                loadedVideos.forEach(video => {
+                    if (video.src && !video.src.startsWith('blob:')) {
+                       if (!groupsBySrc.has(video.src)) groupsBySrc.set(video.src, []);
+                       groupsBySrc.get(video.src).push(video);
+                    }
+                    
+                    const durationKey = Math.round(video.duration);
+                    if (durationKey > 0) {
+                        if (!groupsByDuration.has(durationKey)) groupsByDuration.set(durationKey, []);
+                        groupsByDuration.get(durationKey).push(video);
+                    }
+                });
+
+                const processedVideos = new Set();
+
+                groupsBySrc.forEach(group => {
+                    if (group.length > 1) {
+                        const masterTime = group[0].currentTime;
+                        group.forEach(video => {
+                            video.currentTime = masterTime;
+                            processedVideos.add(video);
+                        });
+                        syncedGroupCount++;
+                    }
+                });
+
+                groupsByDuration.forEach(group => {
+                    const unprocessedGroup = group.filter(v => !processedVideos.has(v));
+                    if (unprocessedGroup.length > 1) {
+                        const masterTime = unprocessedGroup[0].currentTime;
+                        unprocessedGroup.forEach(video => {
+                            video.currentTime = masterTime;
+                        });
+                        if (!processedVideos.has(unprocessedGroup[0])) syncedGroupCount++;
+                    }
+                });
+
+                if (syncedGroupCount > 0) {
+                    alert(`${syncedGroupCount}個のグループで再生位置を同期しました。`);
+                } else {
+                    alert('再生位置を同期できる動画のグループが見つかりませんでした。');
+                }
+            });
+        }
+
+
         function equalizeAllVolumes() {
             const audibleVideos = Array.from(document.querySelectorAll('video')).filter(v => !v.muted && v.volume > 0);
             if (audibleVideos.length < 2) {
@@ -831,7 +1035,7 @@
                 wrappers.forEach(w => {
                     if (w !== currentSpot) {
                         w.style.top = `${thumbTop}px`;
-                        thumbTop += 135 + 10; // thumbnail height + gap
+                        thumbTop += 135 + 10;
                     }
                 });
             } else {
@@ -849,6 +1053,7 @@
         function setupDragAndDrop() {
             const dropZone = document.getElementById('drop-zone');
             const body = document.body;
+            const contentContainer = document.getElementById('content-container');
             
             ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
                 body.addEventListener(eventName, (e) => {
@@ -866,6 +1071,49 @@
                     createContentView(urls, false);
                 }
             });
+
+            let draggedItem = null;
+            contentContainer.addEventListener('dragstart', e => {
+                if (e.target.classList.contains('content-wrapper')) {
+                    draggedItem = e.target;
+                    setTimeout(() => e.target.classList.add('dragging'), 0);
+                }
+            });
+            contentContainer.addEventListener('dragend', e => {
+                 if (draggedItem) {
+                    draggedItem.classList.remove('dragging');
+                    draggedItem = null;
+                 }
+            });
+            contentContainer.addEventListener('dragover', e => {
+                e.preventDefault();
+                const afterElement = getDragAfterElement(contentContainer, e.clientY);
+                const dragging = document.querySelector('.dragging');
+                if (dragging) {
+                     if (afterElement == null) {
+                        contentContainer.appendChild(dragging);
+                     } else {
+                        contentContainer.insertBefore(dragging, afterElement);
+                     }
+                }
+            });
+            contentContainer.addEventListener('drop', e => {
+                e.preventDefault();
+                updateContentIndexes();
+            });
+
+            function getDragAfterElement(container, y) {
+                const draggableElements = [...container.querySelectorAll('.content-wrapper:not(.dragging)')];
+                return draggableElements.reduce((closest, child) => {
+                    const box = child.getBoundingClientRect();
+                    const offset = y - box.top - box.height / 2;
+                    if (offset < 0 && offset > closest.offset) {
+                        return { offset: offset, element: child };
+                    } else {
+                        return closest;
+                    }
+                }, { offset: Number.NEGATIVE_INFINITY }).element;
+            }
         }
         
         // --- State Management (URL & Presets) ---
@@ -882,6 +1130,7 @@
             urls.forEach(url => params.append('url', encodeURIComponent(url)));
             params.set('cols', document.getElementById('columnCount').value);
             params.set('gap', document.getElementById('gapSlider').value);
+            params.set('mode', localStorage.getItem('contentDisplayMode') || 'video');
             
             const newUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}?${params.toString()}`;
             window.history.pushState({ path: newUrl }, '', newUrl);
@@ -889,6 +1138,12 @@
         }
         function loadStateFromUrl() {
             const params = new URLSearchParams(window.location.search);
+            const mode = params.get('mode');
+            if (mode === 'video' || mode === 'mixed') {
+                localStorage.setItem('contentDisplayMode', mode);
+            }
+            loadEasterEggSettings(); 
+            
             const urls = params.getAll('url').map(url => decodeURIComponent(url));
             if (urls.length > 0) {
                 createContentView(urls, true);
@@ -1017,7 +1272,19 @@
             }
         }
         
-        // --- Theme, Modals & Immersive Mode ---
+        // --- Theme, Modals, Popups & Immersive Mode ---
+        function loadGeneralSettings() {
+            const showNumbers = localStorage.getItem('showContentNumbers') !== 'false';
+            const checkbox = document.getElementById('showContentNumbers');
+            checkbox.checked = showNumbers;
+            document.body.classList.toggle('hide-content-numbers', !showNumbers);
+        }
+
+        function toggleContentNumbers(show) {
+            document.body.classList.toggle('hide-content-numbers', !show);
+            localStorage.setItem('showContentNumbers', show);
+        }
+
         function toggleTheme() {
             document.body.classList.toggle('light-theme');
             document.body.classList.toggle('dark-theme');
@@ -1034,6 +1301,30 @@
             document.getElementById(id).classList.add('visible');
         }
         function closeAllModals() { document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('visible')); }
+
+        function setupPopups() {
+            const rateBtn = document.getElementById('playback-rate-all-btn');
+            const ratePopup = document.getElementById('playback-rate-popup');
+
+            rateBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const isVisible = ratePopup.style.visibility === 'visible';
+                hideAllPopups();
+                if (!isVisible) {
+                    ratePopup.style.visibility = 'visible';
+                    // ★★★ 修正点2: JSによる動的な位置計算を削除。CSSで完結させる。 ★★★
+                }
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('.popup-menu') && !e.target.closest('#playback-rate-all-btn')) {
+                    hideAllPopups();
+                }
+            });
+        }
+        function hideAllPopups() {
+            document.querySelectorAll('.popup-menu').forEach(p => p.style.visibility = 'hidden');
+        }
 
         function toggleImmersiveMode() {
             document.body.classList.toggle('immersive-mode');
@@ -1069,17 +1360,24 @@
         }
 
         function loadEasterEggSettings() {
-            // Preset Slot Count
             presetSlotCount = parseInt(localStorage.getItem('presetSlotCount') || '5');
             document.getElementById('preset-slot-count').value = presetSlotCount;
             document.getElementById('preset-slot-count-value').textContent = presetSlotCount;
             updatePresetSelects();
             
-            // Background Image
             const bgImageUrl = localStorage.getItem('bgImageUrl');
             if (bgImageUrl) {
                 document.body.style.backgroundImage = `url('${bgImageUrl}')`;
             }
+
+            const displayMode = localStorage.getItem('contentDisplayMode') || 'video';
+            const radio = document.querySelector(`#easter-egg-modal input[name="content-mode-easter"][value="${displayMode}"]`);
+            if (radio) radio.checked = true;
+        }
+        
+        function setContentDisplayMode(mode) {
+             localStorage.setItem('contentDisplayMode', mode);
+             alert('表示モードを変更しました。次に「読み込み」を押した時から適用されます。');
         }
 
         function updatePresetSlotCount(value) {
@@ -1217,7 +1515,7 @@
         function renderCustomLinks(containerId) {
             const links = getCustomLinks();
             const container = document.getElementById(containerId);
-            container.innerHTML = ''; // Clear previous links
+            container.innerHTML = '';
             if (links.length > 0) {
                 const group = document.createElement('div');
                 group.className = 'button-group';
@@ -1235,12 +1533,58 @@
                     const button = document.createElement('button');
                     button.textContent = link.name;
                     button.title = link.url;
-                    button.style.flexGrow = '0'; // Don't stretch buttons
+                    button.style.flexGrow = '0';
                     button.onclick = () => window.open(link.url, '_blank', 'noopener,noreferrer');
                     group.appendChild(button);
                 });
                 container.appendChild(group);
             }
+        }
+
+        function exportSettings() {
+            const settings = {};
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key.startsWith('preset_') || key.startsWith('secret_preset_') || key.startsWith('custom_links') || ['presetSlotCount', 'bgImageUrl', 'contentDisplayMode', 'showContentNumbers'].includes(key)) {
+                    settings[key] = localStorage.getItem(key);
+                }
+            }
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(settings, null, 2));
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href", dataStr);
+            downloadAnchorNode.setAttribute("download", "multivideo_settings.json");
+            document.body.appendChild(downloadAnchorNode);
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+            alert('設定ファイルをエクスポートしました。');
+        }
+        
+        function importSettings() {
+            const fileInput = document.getElementById('import-file-input');
+            fileInput.onchange = e => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    try {
+                        const settings = JSON.parse(event.target.result);
+                        if (confirm('現在の設定を上書きしてインポートしますか？\nこの操作は元に戻せません。')) {
+                            Object.keys(settings).forEach(key => {
+                                localStorage.setItem(key, settings[key]);
+                            });
+                            alert('設定をインポートしました。ページをリロードして反映します。');
+                            location.reload();
+                        }
+                    } catch (err) {
+                        alert('ファイルの読み込みに失敗しました。有効なJSONファイルではありません。');
+                        console.error(err);
+                    }
+                };
+                reader.readAsText(file);
+                fileInput.value = '';
+            };
+            fileInput.click();
         }
 
     </script>
