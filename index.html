@@ -354,7 +354,6 @@
             <div class="footer-group">
                 <button onclick="toggleAllMute()">🔇 ミュート</button>
                 <button onclick="equalizeAllVolumes()">🔊 音量均一化</button>
-                <!-- ★★★ 修正点1: ポップアップメニューをHTML構造的にボタンの親要素内へ移動 ★★★ -->
                 <div style="position: relative;">
                     <button id="playback-rate-all-btn" title="全ての動画の再生速度を一括で変更します">💨 速度変更</button>
                     <div id="playback-rate-popup" class="popup-menu" style="visibility: hidden;">
@@ -649,10 +648,29 @@
         function createContentView(urls, replace = true) {
             if (isSpotlightMode) toggleSpotlightMode();
             const container = document.getElementById('content-container');
-            if (replace) {
-                container.innerHTML = '';
-            }
             
+            // --- コンテンツ上限25個の制限処理 ---
+            const MAX_ITEMS = 25;
+            if (replace) {
+                if (urls.length > MAX_ITEMS) {
+                    alert(`コンテンツの表示上限は${MAX_ITEMS}個です。超過分はカットされます。`);
+                    urls = urls.slice(0, MAX_ITEMS);
+                }
+                container.innerHTML = '';
+            } else {
+                const currentCount = container.children.length;
+                const available = MAX_ITEMS - currentCount;
+                if (available <= 0) {
+                    alert(`コンテンツの表示上限（${MAX_ITEMS}個）に達しているため追加できません。`);
+                    return;
+                }
+                if (urls.length > available) {
+                    alert(`コンテンツの表示上限は${MAX_ITEMS}個です。一部のみ追加されます。`);
+                    urls = urls.slice(0, available);
+                }
+            }
+            // ----------------------------------
+
             const displayMode = localStorage.getItem('contentDisplayMode') || 'video';
 
             urls.forEach((url) => {
@@ -1312,7 +1330,6 @@
                 hideAllPopups();
                 if (!isVisible) {
                     ratePopup.style.visibility = 'visible';
-                    // ★★★ 修正点2: JSによる動的な位置計算を削除。CSSで完結させる。 ★★★
                 }
             });
 
